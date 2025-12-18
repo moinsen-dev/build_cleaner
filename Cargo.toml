@@ -1,0 +1,41 @@
+[package]
+name = "build-cleaner"
+version = "0.1.0"
+edition = "2021"
+description = "Multi-language build directory cleaner - reclaim disk space by removing build artifacts"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/moinsen/build_cleaner"
+keywords = ["cli", "cleaner", "build", "disk-space", "developer-tools"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+# CLI parsing
+clap = { version = "4.4", features = ["derive", "color"] }
+
+# Filesystem traversal
+walkdir = "2.4"
+
+# Parallelism
+rayon = "1.8"
+
+# Console output
+colored = "2.1"
+indicatif = { version = "0.17", features = ["rayon"] }
+
+# Interactive prompts
+dialoguer = { version = "0.11", features = ["fuzzy-select"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Human-readable sizes
+bytesize = "1.3"
+
+# Time handling for --min-age
+chrono = "0.4"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
