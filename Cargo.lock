@@ -91,6 +91,7 @@ dependencies = [
  "dialoguer",
  "indicatif",
  "rayon",
+ "tempfile",
  "thiserror",
  "walkdir",
 ]
