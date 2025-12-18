@@ -1,3 +1,4 @@
+use crate::cache::{Cache, CacheCategory};
 use crate::project::{Project, ProjectType};
 use colored::*;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -273,4 +274,232 @@ pub fn print_confirm_prompt(count: usize, total_size: u64) {
 /// Print abort message
 pub fn print_aborted() {
     println!("\n{} Operation cancelled. No files were deleted.", "\u{1F6AB}".red());
+}
+
+// === Cache Display Functions ===
+
+/// Print the list of found caches
+pub fn print_caches(caches: &[Cache], dry_run: bool) {
+    if caches.is_empty() {
+        println!(
+            "\n{} No user caches found to clean.",
+            "\u{2139}".blue()
+        );
+        return;
+    }
+
+    if dry_run {
+        println!(
+            "\n{} {}\n",
+            "\u{1F5C4}",
+            "User caches found:".bold()
+        );
+    } else {
+        println!(
+            "\n{} {}\n",
+            "\u{1F5C4}",
+            "User caches to clean:".bold()
+        );
+    }
+
+    for (i, cache) in caches.iter().enumerate() {
+        print_cache_entry(i + 1, cache);
+    }
+}
+
+/// Print a single cache entry
+fn print_cache_entry(index: usize, cache: &Cache) {
+    println!(
+        "  {}. {} {} ({})",
+        format!("{:>2}", index).dimmed(),
+        cache.cache_type.icon(),
+        cache.cache_type.label().cyan(),
+        cache.size_display().yellow()
+    );
+
+    // Show warning if special handling needed
+    if let Some(warning) = cache.cache_type.requires_app_closed() {
+        println!(
+            "       {} {}",
+            "\u{26A0}".yellow(),
+            warning.dimmed()
+        );
+    }
+}
+
+/// Print combined summary for projects and caches
+pub fn print_combined_summary(projects: &[Project], caches: &[Cache]) {
+    let project_size: u64 = projects.iter().map(|p| p.total_size).sum();
+    let cache_size: u64 = caches.iter().map(|c| c.size).sum();
+    let total_size = project_size + cache_size;
+    let total_artifacts: usize = projects.iter().map(|p| p.artifacts.len()).sum();
+
+    println!("\n{}", "─".repeat(60).dimmed());
+    println!("{} {}", "\u{1F4CA}", "Summary".bold());
+    println!("{}", "─".repeat(60).dimmed());
+
+    // Project stats
+    if !projects.is_empty() {
+        println!(
+            "  {} {} project{} with {} artifact director{}",
+            "\u{2022}".cyan(),
+            projects.len().to_string().white().bold(),
+            if projects.len() == 1 { "" } else { "s" },
+            total_artifacts.to_string().white().bold(),
+            if total_artifacts == 1 { "y" } else { "ies" }
+        );
+
+        // Group by project type
+        let mut by_type: HashMap<ProjectType, (usize, u64)> = HashMap::new();
+        for project in projects {
+            let entry = by_type.entry(project.project_type).or_insert((0, 0));
+            entry.0 += 1;
+            entry.1 += project.total_size;
+        }
+        let mut type_stats: Vec<_> = by_type.into_iter().collect();
+        type_stats.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
+
+        println!("\n  {} {}", "\u{1F4C2}", "By ecosystem:".bold());
+        for (project_type, (count, size)) in &type_stats {
+            println!(
+                "     {} {:>3} {} {:>12}",
+                project_type.icon(),
+                count.to_string().white(),
+                format!("{:<10}", project_type.label()).dimmed(),
+                bytesize::ByteSize(*size).to_string().yellow()
+            );
+        }
+    }
+
+    // Cache stats
+    if !caches.is_empty() {
+        println!(
+            "\n  {} {} user cache{}",
+            "\u{2022}".cyan(),
+            caches.len().to_string().white().bold(),
+            if caches.len() == 1 { "" } else { "s" }
+        );
+
+        // Group by category
+        let mut by_category: HashMap<CacheCategory, (usize, u64)> = HashMap::new();
+        for cache in caches {
+            let entry = by_category
+                .entry(cache.cache_type.category())
+                .or_insert((0, 0));
+            entry.0 += 1;
+            entry.1 += cache.size;
+        }
+        let mut cat_stats: Vec<_> = by_category.into_iter().collect();
+        cat_stats.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
+
+        println!("\n  {} {}", "\u{1F5C4}", "User caches:".bold());
+        for (category, (count, size)) in &cat_stats {
+            println!(
+                "     {} {:>3} {} {:>12}",
+                category.icon(),
+                count.to_string().white(),
+                format!("{:<14}", category.label()).dimmed(),
+                bytesize::ByteSize(*size).to_string().yellow()
+            );
+        }
+    }
+
+    // Combined largest items
+    if !projects.is_empty() || !caches.is_empty() {
+        // Create a unified list of (name, icon, size)
+        let mut all_items: Vec<(String, &str, u64)> = Vec::new();
+
+        for project in projects {
+            all_items.push((
+                project.name.clone(),
+                project.project_type.icon(),
+                project.total_size,
+            ));
+        }
+
+        for cache in caches {
+            all_items.push((
+                cache.cache_type.label().to_string(),
+                cache.cache_type.icon(),
+                cache.size,
+            ));
+        }
+
+        // Sort by size
+        all_items.sort_by(|a, b| b.2.cmp(&a.2));
+
+        let top_count = std::cmp::min(10, all_items.len());
+        if top_count > 0 {
+            println!("\n  {} {}", "\u{1F3C6}", "Largest items:".bold());
+            for (i, (name, icon, size)) in all_items.iter().take(top_count).enumerate() {
+                let rank = i + 1;
+                let medal = match rank {
+                    1 => "\u{1F947}",
+                    2 => "\u{1F948}",
+                    3 => "\u{1F949}",
+                    _ => "  ",
+                };
+                println!(
+                    "   {} {:>2}. {} {} {:>12}",
+                    medal,
+                    rank,
+                    icon,
+                    truncate_name(name, 30).cyan(),
+                    bytesize::ByteSize(*size).to_string().yellow()
+                );
+            }
+
+            let top_size: u64 = all_items.iter().take(top_count).map(|(_, _, s)| s).sum();
+            let percentage = if total_size > 0 {
+                (top_size as f64 / total_size as f64 * 100.0) as u32
+            } else {
+                0
+            };
+            println!(
+                "     {} Top {} = {} ({}% of total)",
+                "\u{2192}".dimmed(),
+                top_count,
+                bytesize::ByteSize(top_size).to_string().yellow(),
+                percentage.to_string().white()
+            );
+        }
+    }
+
+    // Total
+    println!("\n{}", "─".repeat(60).dimmed());
+    println!(
+        "  {} {} {}",
+        "\u{1F4BE}",
+        "Total space to reclaim:".bold(),
+        bytesize::ByteSize(total_size).to_string().yellow().bold()
+    );
+    if !projects.is_empty() && !caches.is_empty() {
+        println!(
+            "       ({} projects + {} caches)",
+            bytesize::ByteSize(project_size).to_string().dimmed(),
+            bytesize::ByteSize(cache_size).to_string().dimmed()
+        );
+    }
+    println!("{}", "─".repeat(60).dimmed());
+}
+
+/// Print script generation success message
+pub fn print_script_generated(path: &std::path::Path, total_size: u64, item_count: usize) {
+    println!(
+        "\n{} {} {}",
+        "\u{1F4DD}",
+        "Script generated:".green().bold(),
+        path.display().to_string().cyan()
+    );
+    println!(
+        "  {} {} items, {} potential savings",
+        "\u{2022}".dimmed(),
+        item_count,
+        bytesize::ByteSize(total_size).to_string().yellow()
+    );
+    println!(
+        "  {} Review and edit the script, then run: {}",
+        "\u{2022}".dimmed(),
+        format!("chmod +x {} && {}", path.display(), path.display()).white()
+    );
 }

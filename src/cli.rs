@@ -14,6 +14,20 @@ pub enum ProjectFilter {
     Go,
 }
 
+#[derive(Debug, Clone, ValueEnum, PartialEq, Eq)]
+pub enum CacheFilter {
+    /// AI/ML model caches (Hugging Face, Ollama, PyTorch)
+    AiMl,
+    /// Package manager caches (npm, yarn, cargo, pip, gradle, maven)
+    Package,
+    /// Development tool caches (Xcode, Android SDK)
+    Dev,
+    /// IDE caches (JetBrains, VSCode)
+    Ide,
+    /// Container caches (Docker)
+    Container,
+}
+
 #[derive(Parser, Debug)]
 #[command(
     name = "build-cleaner",
@@ -64,6 +78,24 @@ pub struct Args {
     /// Enable verbose output
     #[arg(long, short = 'v')]
     pub verbose: bool,
+
+    // === User Cache Options ===
+    /// Also scan user-level caches (AI models, package managers, IDE caches)
+    #[arg(long, short = 'u')]
+    pub user_caches: bool,
+
+    /// Only scan user caches, skip project build artifacts
+    #[arg(long)]
+    pub cache_only: bool,
+
+    /// Filter cache categories (can be repeated: ai-ml, package, dev, ide, container)
+    #[arg(long, value_enum, value_name = "CATEGORY")]
+    pub cache_category: Vec<CacheFilter>,
+
+    // === Script Generation ===
+    /// Generate a shell script instead of deleting directly
+    #[arg(long, value_name = "PATH")]
+    pub script: Option<PathBuf>,
 }
 
 impl Args {
