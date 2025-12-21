@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="{{ site.lang | default: 'en-US' }}">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+{% seo %}
+    <link rel="stylesheet" href="https://pages-themes.github.io/cayman/assets/css/style.css?v=">
+    <link rel="stylesheet" href="{{ '/assets/css/custom.css' | relative_url }}">
+  </head>
+  <body>
+    <header class="page-header" role="banner">
+      <h1 class="project-name">{{ page.title | default: site.title }}</h1>
+      <h2 class="project-tagline">{{ site.description }}</h2>
+      <a href="{{ site.repository | prepend: 'https://github.com/' }}" class="btn">View on GitHub</a>
+      <a href="{{ site.repository | prepend: 'https://github.com/' | append: '/releases' }}" class="btn">Download</a>
+    </header>
+
+    <nav class="main-nav">
+      <div class="nav-container">
+        <a href="{{ '/' | relative_url }}" class="nav-link{% if page.url == '/' %} active{% endif %}">Home</a>
+        <a href="{{ '/installation/' | relative_url }}" class="nav-link{% if page.url contains 'installation' %} active{% endif %}">Installation</a>
+        <a href="{{ '/usage/' | relative_url }}" class="nav-link{% if page.url contains 'usage' %} active{% endif %}">Usage</a>
+        <a href="{{ '/ecosystems/' | relative_url }}" class="nav-link{% if page.url contains 'ecosystems' %} active{% endif %}">Ecosystems</a>
+        <a href="{{ '/caches/' | relative_url }}" class="nav-link{% if page.url contains 'caches' %} active{% endif %}">Caches</a>
+        <a href="{{ '/scripts/' | relative_url }}" class="nav-link{% if page.url contains 'scripts' %} active{% endif %}">Scripts</a>
+        <a href="{{ '/safety/' | relative_url }}" class="nav-link{% if page.url contains 'safety' %} active{% endif %}">Safety</a>
+      </div>
+    </nav>
+
+    <main id="content" class="main-content" role="main">
+      {{ content }}
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="{{ site.repository | prepend: 'https://github.com/' }}">{{ site.title }}</a> is maintained by <a href="https://github.com/{{ site.github_username }}">{{ site.github_username }}</a>.</span>
+        <span class="site-footer-credits">Licensed under MIT.</span>
+      </footer>
+    </main>
+  </body>
+</html>
