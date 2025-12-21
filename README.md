@@ -11,6 +11,7 @@ A fast, safe CLI tool to recursively find and delete build artifacts and caches 
 - **Interactive mode**: Select which projects/caches to clean
 - **Script generation**: Generate a reviewable shell script instead of direct deletion
 - **Comprehensive summary**: See breakdown by ecosystem, category, and largest items
+- **Web UI dashboard**: Built-in web interface with Chart.js visualizations
 
 ## Installation
 
@@ -34,6 +35,22 @@ git clone https://github.com/moinsen-dev/build_cleaner
 cd build_cleaner
 cargo build --release
 # Binary is at target/release/build-cleaner
+```
+
+### Using Makefile
+
+```bash
+git clone https://github.com/moinsen-dev/build_cleaner
+cd build_cleaner
+
+# Install to ~/bin (no sudo required)
+make install-local
+
+# Or install to /usr/local/bin (requires sudo)
+make install
+
+# See all available targets
+make help
 ```
 
 ## Usage
@@ -79,6 +96,27 @@ build-cleaner --script cleanup.sh
 chmod +x cleanup.sh
 ./cleanup.sh
 ```
+
+### Web UI Dashboard
+
+```bash
+# Launch web dashboard (auto-opens browser)
+build-cleaner --serve
+
+# Use a custom port
+build-cleaner --serve --port 3000
+
+# Don't auto-open browser
+build-cleaner --serve --no-open
+```
+
+The web UI provides:
+- **Real-time scan progress**: See which folders are being scanned and discoveries as they happen
+- **Interactive charts**: Clickable donut/bar charts showing size by ecosystem and top projects
+- **Project details**: Click any project to see exactly which artifact folders will be deleted
+- **Deletion preview**: Before cleanup, see a complete list of all directories to be removed
+- **Checkbox selection**: Select individual projects/caches or use "Select All"
+- **Script generation**: Generate a reviewable shell script from the UI
 
 ### Filtering Options
 
@@ -187,6 +225,9 @@ Options:
       --cache-only                 Only scan user caches, skip projects
       --cache-category <CATEGORY>  Filter cache categories (ai-ml, package, dev, ide, container)
       --script <PATH>              Generate shell script instead of deleting
+      --serve                      Launch web UI dashboard
+      --port <PORT>                Port for web UI server [default: 8080]
+      --no-open                    Don't auto-open browser when starting web UI
   -h, --help                       Print help
   -V, --version                    Print version
 ```

@@ -1,6 +1,6 @@
 [package]
 name = "build-cleaner"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "Multi-language build directory cleaner - reclaim disk space by removing build artifacts"
 license = "MIT OR Apache-2.0"
@@ -37,6 +37,19 @@ chrono = "0.4"
 
 # Home directory detection
 dirs = "5.0"
+
+# Web UI server
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio-stream = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rust-embed = "8"
+tower-http = { version = "0.5", features = ["cors"] }
+mime_guess = "2"
+open = "5"
+async-stream = "0.3"
+futures = "0.3"
 
 [dev-dependencies]
 tempfile = "3.23"

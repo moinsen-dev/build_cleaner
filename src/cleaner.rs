@@ -172,7 +172,7 @@ fn print_cache_only_summary(caches: &[Cache]) {
     let total_size: u64 = caches.iter().map(|c| c.size).sum();
 
     println!("\n{}", "─".repeat(60).dimmed());
-    println!("{} {}", "\u{1F4CA}", "Summary".bold());
+    println!("\u{1F4CA} {}", "Summary".bold());
     println!("{}", "─".repeat(60).dimmed());
 
     // Group by category
@@ -194,7 +194,7 @@ fn print_cache_only_summary(caches: &[Cache]) {
         if caches.len() == 1 { "" } else { "s" }
     );
 
-    println!("\n  {} {}", "\u{1F5C4}", "By category:".bold());
+    println!("\n  \u{1F5C4} {}", "By category:".bold());
     for (category, (count, size)) in &cat_stats {
         println!(
             "     {} {:>3} {} {:>12}",
@@ -207,8 +207,7 @@ fn print_cache_only_summary(caches: &[Cache]) {
 
     println!("\n{}", "─".repeat(60).dimmed());
     println!(
-        "  {} {} {}",
-        "\u{1F4BE}",
+        "  \u{1F4BE} {} {}",
         "Total space to reclaim:".bold(),
         bytesize::ByteSize(total_size).to_string().yellow().bold()
     );
@@ -366,8 +365,7 @@ fn delete_all(projects: &[Project], caches: &[Cache]) -> Result<(usize, u64, usi
         match delete_cache(cache) {
             Ok(freed) => {
                 println!(
-                    "  {} Removed {} {} ({})",
-                    "\u{2714}".to_string(),
+                    "  \u{2714} Removed {} {} ({})",
                     cache.cache_type.icon(),
                     cache.cache_type.label(),
                     bytesize::ByteSize(freed)
@@ -377,8 +375,7 @@ fn delete_all(projects: &[Project], caches: &[Cache]) -> Result<(usize, u64, usi
             }
             Err(e) => {
                 println!(
-                    "  {} Failed to remove {}: {}",
-                    "\u{2718}".to_string(),
+                    "  \u{2718} Failed to remove {}: {}",
                     cache.cache_type.label(),
                     e
                 );

@@ -76,6 +76,20 @@ Clean system-wide developer caches with `--user-caches`:
 - **IDEs**: JetBrains, VS Code, VS Code Server
 - **Containers**: Docker (with system prune)
 
+### Web UI Dashboard
+
+Launch a visual, interactive dashboard with `--serve`:
+
+```bash
+build-cleaner --serve
+```
+
+Features include:
+- Chart.js visualizations of disk usage
+- Interactive project and cache selection
+- Real-time scan progress
+- Dark/light theme support
+
 ### Safety First
 
 - **Two-factor detection**: Only cleans directories that have BOTH a config file and artifact directory
@@ -124,6 +138,7 @@ Summary
 
 - [Installation](installation/) - Install via Homebrew, Cargo, or from source
 - [Usage Guide](usage/) - Complete CLI reference and examples
+- [Web UI](web-ui/) - Visual dashboard with charts and interactive cleanup
 - [Supported Ecosystems](ecosystems/) - Details on each programming language support
 - [User Caches](caches/) - Understanding and cleaning user-level caches
 - [Script Generation](scripts/) - Generate reviewable cleanup scripts

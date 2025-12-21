@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Build Cleaner</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Build Cleaner</h1>
+            <p class="subtitle">Reclaim disk space by cleaning build artifacts and caches</p>
+        </header>
+
+        <section class="scan-controls">
+            <div class="input-group">
+                <label for="scan-path">Directory</label>
+                <input type="text" id="scan-path" placeholder="Path to scan..." value=".">
+            </div>
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" id="user-caches">
+                    Include user caches
+                </label>
+                <label>
+                    <input type="checkbox" id="cache-only">
+                    Cache only
+                </label>
+            </div>
+            <button id="scan-btn" class="btn btn-primary">
+                <span class="btn-text">Scan</span>
+                <span class="btn-loading hidden">Scanning...</span>
+            </button>
+        </section>
+
+        <section id="status-bar" class="status-bar hidden">
+            <div class="spinner"></div>
+            <span id="status-text">Scanning...</span>
+        </section>
+
+        <section id="results" class="hidden">
+            <!-- Summary Cards -->
+            <div id="summary-cards" class="summary-cards">
+                <div class="card summary-card">
+                    <div class="card-icon">📁</div>
+                    <div class="card-content">
+                        <div class="card-value" id="total-projects">0</div>
+                        <div class="card-label">Projects</div>
+                    </div>
+                </div>
+                <div class="card summary-card">
+                    <div class="card-icon">🗄️</div>
+                    <div class="card-content">
+                        <div class="card-value" id="total-caches">0</div>
+                        <div class="card-label">Caches</div>
+                    </div>
+                </div>
+                <div class="card summary-card total">
+                    <div class="card-icon">💾</div>
+                    <div class="card-content">
+                        <div class="card-value" id="total-size">0 B</div>
+                        <div class="card-label">To Reclaim</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-container">
+                <div class="card chart-card" id="ecosystem-chart-card">
+                    <h3>📊 By Ecosystem</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="ecosystem-chart"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card" id="top-projects-chart-card">
+                    <h3>📁 Top Projects by Size</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="top-projects-chart"></canvas>
+                    </div>
+                </div>
+                <div class="card chart-card" id="category-chart-card">
+                    <h3>🗄️ By Cache Category</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="category-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Largest Items -->
+            <div class="card largest-items">
+                <h3>🏆 Largest Items</h3>
+                <div id="largest-items-list"></div>
+            </div>
+
+            <!-- Deletion Preview (shown when items selected) -->
+            <div id="deletion-preview" class="card deletion-preview hidden">
+                <div class="deletion-preview-header">
+                    <h3>🗑️ Deletion Preview</h3>
+                    <span class="deletion-summary" id="deletion-summary">0 folders to delete</span>
+                </div>
+                <p class="deletion-warning">The following directories will be permanently deleted:</p>
+                <div id="deletion-preview-list" class="deletion-list"></div>
+            </div>
+
+            <!-- Item Lists -->
+            <div class="lists-container">
+                <div class="card list-card" id="projects-section">
+                    <div class="list-header">
+                        <h3>📁 Projects</h3>
+                        <div class="list-actions">
+                            <button class="btn btn-small" onclick="selectAll('projects')">Select All</button>
+                            <button class="btn btn-small" onclick="deselectAll('projects')">Deselect All</button>
+                        </div>
+                    </div>
+                    <div id="projects-list" class="items-list"></div>
+                </div>
+
+                <div class="card list-card" id="caches-section">
+                    <div class="list-header">
+                        <h3>🗄️ User Caches</h3>
+                        <div class="list-actions">
+                            <button class="btn btn-small" onclick="selectAll('caches')">Select All</button>
+                            <button class="btn btn-small" onclick="deselectAll('caches')">Deselect All</button>
+                        </div>
+                    </div>
+                    <div id="caches-list" class="items-list"></div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="actions-bar">
+                <div class="selection-info">
+                    <span id="selection-count">0 items selected</span>
+                    <span id="selection-size">(0 B)</span>
+                </div>
+                <div class="action-buttons">
+                    <button id="script-btn" class="btn btn-secondary" onclick="generateScript()">
+                        Generate Script
+                    </button>
+                    <button id="clean-btn" class="btn btn-danger" onclick="cleanSelected()">
+                        Clean Selected
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Script Modal -->
+        <div id="script-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Generated Cleanup Script</h3>
+                    <button class="close-btn" onclick="closeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <pre id="script-content"></pre>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="copyScript()">Copy to Clipboard</button>
+                    <button class="btn btn-primary" onclick="closeModal()">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirm Modal -->
+        <div id="confirm-modal" class="modal hidden">
+            <div class="modal-content modal-small">
+                <div class="modal-header">
+                    <h3>⚠️ Confirm Cleanup</h3>
+                </div>
+                <div class="modal-body">
+                    <p id="confirm-message">Are you sure you want to delete the selected items?</p>
+                    <p class="warning-text">This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+                    <button class="btn btn-danger" onclick="confirmClean()">Delete</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Project Detail Modal -->
+        <div id="project-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="project-modal-title">Project Details</h3>
+                    <button class="close-btn" onclick="closeProjectModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="project-modal-info" class="project-detail-info"></div>
+                    <h4>Artifacts to be deleted:</h4>
+                    <div id="project-modal-artifacts" class="artifacts-list"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" onclick="closeProjectModal()">Close</button>
+                    <button class="btn btn-primary" id="project-modal-select" onclick="selectProjectFromModal()">Select for Cleanup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

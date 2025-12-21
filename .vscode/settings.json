@@ -1,0 +1,58 @@
+{
+  // Python configuration
+  "python.defaultInterpreterPath": ".venv/bin/python",
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+
+  // Ruff as primary formatter and linter
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+
+  // Editor settings
+  "editor.formatOnSave": true,
+  "editor.rulers": [100],
+  "editor.tabSize": 4,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  // File associations
+  "files.associations": {
+    "*.env*": "dotenv",
+    "Dockerfile*": "dockerfile"
+  },
+
+  // Exclude from search/explorer
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/*.pyc": true,
+    ".venv": true
+  },
+
+  // Testing
+  "python.testing.pytestEnabled": true,
+  "python.testing.pytestArgs": ["tests", "-v"],
+  "python.testing.unittestEnabled": false,
+
+  // MyPy
+  "mypy-type-checker.args": ["--config-file=pyproject.toml"],
+
+  // Docker
+  "docker.defaultRegistryPath": "ghcr.io",
+
+  // Terminal
+  "terminal.integrated.env.osx": {
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "terminal.integrated.env.linux": {
+    "PYTHONDONTWRITEBYTECODE": "1"
+  }
+}

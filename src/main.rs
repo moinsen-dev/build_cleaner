@@ -6,16 +6,23 @@ mod output;
 mod project;
 mod scanner;
 mod script;
+mod web;
 
 use anyhow::Result;
 use cli::Args;
 use clap::Parser;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     let args = Args::parse();
 
-    // Run the cleaner with parsed arguments
-    cleaner::run(args)?;
+    if args.serve {
+        // Launch web UI server
+        web::start_server(args).await?;
+    } else {
+        // Run CLI cleaner
+        cleaner::run(args)?;
+    }
 
     Ok(())
 }

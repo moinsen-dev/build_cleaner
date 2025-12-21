@@ -38,8 +38,7 @@ pub fn print_projects(projects: &[Project], dry_run: bool) {
         );
     } else {
         println!(
-            "\n{} {}\n",
-            "\u{1F4C1}",
+            "\n\u{1F4C1} {}\n",
             "Found projects with cleanable artifacts:".bold()
         );
     }
@@ -70,7 +69,7 @@ fn print_scan_summary(projects: &[Project], total_size: u64) {
     type_stats.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
 
     println!("\n{}", "─".repeat(60).dimmed());
-    println!("{} {}", "\u{1F4CA}", "Summary".bold());
+    println!("\u{1F4CA} {}", "Summary".bold());
     println!("{}", "─".repeat(60).dimmed());
 
     // Overall stats
@@ -84,7 +83,7 @@ fn print_scan_summary(projects: &[Project], total_size: u64) {
     );
 
     // Breakdown by type
-    println!("\n  {} {}", "\u{1F4C2}", "By ecosystem:".bold());
+    println!("\n  \u{1F4C2} {}", "By ecosystem:".bold());
     for (project_type, (count, size)) in &type_stats {
         println!(
             "     {} {:>3} {} {:>12}",
@@ -98,7 +97,7 @@ fn print_scan_summary(projects: &[Project], total_size: u64) {
     // Top projects by size (show top 10 or fewer if less projects)
     let top_count = std::cmp::min(10, projects.len());
     if top_count > 0 {
-        println!("\n  {} {}", "\u{1F3C6}", "Largest projects:".bold());
+        println!("\n  \u{1F3C6} {}", "Largest projects:".bold());
         for (i, project) in projects.iter().take(top_count).enumerate() {
             let rank = i + 1;
             let medal = match rank {
@@ -136,8 +135,7 @@ fn print_scan_summary(projects: &[Project], total_size: u64) {
     // Total
     println!("\n{}", "─".repeat(60).dimmed());
     println!(
-        "  {} {} {}",
-        "\u{1F4BE}",
+        "  \u{1F4BE} {} {}",
         "Total space to reclaim:".bold(),
         bytesize::ByteSize(total_size).to_string().yellow().bold()
     );
@@ -232,8 +230,7 @@ pub fn print_summary(deleted_count: usize, total_freed: u64, failed_count: usize
     println!();
     if deleted_count > 0 {
         println!(
-            "{} {} Freed {} from {} project{}.",
-            "\u{2728}",
+            "\u{2728} {} Freed {} from {} project{}.",
             "Clean complete!".green().bold(),
             bytesize::ByteSize(total_freed).to_string().yellow().bold(),
             deleted_count,
@@ -290,14 +287,12 @@ pub fn print_caches(caches: &[Cache], dry_run: bool) {
 
     if dry_run {
         println!(
-            "\n{} {}\n",
-            "\u{1F5C4}",
+            "\n\u{1F5C4} {}\n",
             "User caches found:".bold()
         );
     } else {
         println!(
-            "\n{} {}\n",
-            "\u{1F5C4}",
+            "\n\u{1F5C4} {}\n",
             "User caches to clean:".bold()
         );
     }
@@ -335,7 +330,7 @@ pub fn print_combined_summary(projects: &[Project], caches: &[Cache]) {
     let total_artifacts: usize = projects.iter().map(|p| p.artifacts.len()).sum();
 
     println!("\n{}", "─".repeat(60).dimmed());
-    println!("{} {}", "\u{1F4CA}", "Summary".bold());
+    println!("\u{1F4CA} {}", "Summary".bold());
     println!("{}", "─".repeat(60).dimmed());
 
     // Project stats
@@ -359,7 +354,7 @@ pub fn print_combined_summary(projects: &[Project], caches: &[Cache]) {
         let mut type_stats: Vec<_> = by_type.into_iter().collect();
         type_stats.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
 
-        println!("\n  {} {}", "\u{1F4C2}", "By ecosystem:".bold());
+        println!("\n  \u{1F4C2} {}", "By ecosystem:".bold());
         for (project_type, (count, size)) in &type_stats {
             println!(
                 "     {} {:>3} {} {:>12}",
@@ -392,7 +387,7 @@ pub fn print_combined_summary(projects: &[Project], caches: &[Cache]) {
         let mut cat_stats: Vec<_> = by_category.into_iter().collect();
         cat_stats.sort_by(|a, b| b.1 .1.cmp(&a.1 .1));
 
-        println!("\n  {} {}", "\u{1F5C4}", "User caches:".bold());
+        println!("\n  \u{1F5C4} {}", "User caches:".bold());
         for (category, (count, size)) in &cat_stats {
             println!(
                 "     {} {:>3} {} {:>12}",
@@ -430,7 +425,7 @@ pub fn print_combined_summary(projects: &[Project], caches: &[Cache]) {
 
         let top_count = std::cmp::min(10, all_items.len());
         if top_count > 0 {
-            println!("\n  {} {}", "\u{1F3C6}", "Largest items:".bold());
+            println!("\n  \u{1F3C6} {}", "Largest items:".bold());
             for (i, (name, icon, size)) in all_items.iter().take(top_count).enumerate() {
                 let rank = i + 1;
                 let medal = match rank {
@@ -468,8 +463,7 @@ pub fn print_combined_summary(projects: &[Project], caches: &[Cache]) {
     // Total
     println!("\n{}", "─".repeat(60).dimmed());
     println!(
-        "  {} {} {}",
-        "\u{1F4BE}",
+        "  \u{1F4BE} {} {}",
         "Total space to reclaim:".bold(),
         bytesize::ByteSize(total_size).to_string().yellow().bold()
     );
@@ -486,8 +480,7 @@ pub fn print_combined_summary(projects: &[Project], caches: &[Cache]) {
 /// Print script generation success message
 pub fn print_script_generated(path: &std::path::Path, total_size: u64, item_count: usize) {
     println!(
-        "\n{} {} {}",
-        "\u{1F4DD}",
+        "\n\u{1F4DD} {} {}",
         "Script generated:".green().bold(),
         path.display().to_string().cyan()
     );

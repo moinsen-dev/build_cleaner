@@ -55,6 +55,8 @@ navigation:
     url: /installation/
   - title: Usage
     url: /usage/
+  - title: Web UI
+    url: /web-ui/
   - title: Ecosystems
     url: /ecosystems/
   - title: User Caches

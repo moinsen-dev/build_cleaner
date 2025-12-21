@@ -96,6 +96,19 @@ pub struct Args {
     /// Generate a shell script instead of deleting directly
     #[arg(long, value_name = "PATH")]
     pub script: Option<PathBuf>,
+
+    // === Web UI Options ===
+    /// Launch web UI dashboard instead of terminal output
+    #[arg(long)]
+    pub serve: bool,
+
+    /// Port for web UI server (default: 8080)
+    #[arg(long, default_value = "8080")]
+    pub port: u16,
+
+    /// Don't automatically open browser when starting web UI
+    #[arg(long)]
+    pub no_open: bool,
 }
 
 impl Args {

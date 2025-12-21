@@ -70,6 +70,9 @@ Options:
       --cache-only                 Only scan user caches, skip projects
       --cache-category <CATEGORY>  Filter cache categories
       --script <PATH>              Generate shell script instead of deleting
+      --serve                      Launch web UI dashboard
+      --port <PORT>                Port for web UI server [default: 8080]
+      --no-open                    Don't auto-open browser
   -h, --help                       Print help
   -V, --version                    Print version
 ```
@@ -292,6 +295,23 @@ vim ~/cleanup.sh
 ~/cleanup.sh
 ```
 
+## Web UI Dashboard
+
+For a visual, interactive experience, use the web UI:
+
+```bash
+# Launch web dashboard
+build-cleaner --serve
+
+# Custom port
+build-cleaner --serve --port 3000
+
+# Without auto-opening browser
+build-cleaner --serve --no-open
+```
+
+See [Web UI](../web-ui/) for full documentation of the dashboard features.
+
 ---
 
-[Back to Home](/) | [Previous: Installation](../installation/) | [Next: Ecosystems](../ecosystems/)
+[Back to Home](/) | [Previous: Installation](../installation/) | [Next: Web UI](../web-ui/)

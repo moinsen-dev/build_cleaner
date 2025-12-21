@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-12-21
+
+### Added
+
+- **Web UI Dashboard** (`--serve`)
+  - Built-in web interface for interactive scanning and cleanup
+  - Auto-opens browser by default (disable with `--no-open`)
+  - Configurable port with `--port` (default: 8080)
+
+- **Chart.js Visualizations**
+  - Donut chart: Size breakdown by ecosystem (Node, Rust, Python, etc.) - clickable
+  - Bar chart: Top projects by size - clickable to view details
+  - Bar chart: Size breakdown by cache category (AI/ML, Package, IDE, etc.)
+  - Top 10 largest items display with progress bars
+
+- **Interactive Web Features**
+  - Real-time scan progress via Server-Sent Events (SSE)
+  - Live display of folders being scanned and discoveries as they happen
+  - Project detail modal: Click any project to see exactly which artifact folders will be deleted
+  - Deletion preview panel: Before cleanup, see complete list of all directories to be removed
+  - Checkbox selection for projects and caches
+  - Execute cleanup directly from browser
+  - Generate cleanup scripts from selection
+  - Dark/light theme support (follows system preference)
+  - Responsive design for mobile devices
+
+### Technical
+
+- Added axum web framework for HTTP server
+- Server-Sent Events (SSE) endpoint for real-time progress streaming
+- Embedded static assets via rust-embed (single binary distribution)
+- Async tokio runtime with broadcast channels for concurrent operations
+- RESTful API endpoints for scan, results, cleanup, and script generation
+
 ## [0.1.0] - 2024-12-18
 
 ### Added
