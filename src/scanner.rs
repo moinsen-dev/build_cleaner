@@ -340,3 +340,274 @@ impl Scanner {
         true
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File};
+    use std::io::Write;
+
+    /// Create a temporary directory under $HOME so it isn't blocked by SYSTEM_DIRS.
+    /// Returns the path; caller must delete it on drop.
+    struct HomeTemp {
+        path: PathBuf,
+    }
+
+    impl HomeTemp {
+        fn new(label: &str) -> Self {
+            let home = dirs::home_dir().expect("no home dir");
+            // Use a unique name per test via label + thread id approximation
+            let path = home
+                .join(".build-cleaner-test")
+                .join(label);
+            fs::create_dir_all(&path).unwrap();
+            Self { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for HomeTemp {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    fn make_config(root: PathBuf) -> Config {
+        Config {
+            root_dir: root,
+            ..Config::default()
+        }
+    }
+
+    fn write_file(path: &Path, content: &str) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        let mut f = File::create(path).unwrap();
+        f.write_all(content.as_bytes()).unwrap();
+    }
+
+    fn create_dir_with_files(dir: &Path, file_count: usize, file_size: usize) {
+        fs::create_dir_all(dir).unwrap();
+        for i in 0..file_count {
+            let content = "x".repeat(file_size);
+            write_file(&dir.join(format!("file_{}.txt", i)), &content);
+        }
+    }
+
+    // --- Project detection tests ---
+
+    #[test]
+    fn test_detects_rust_project_with_target() {
+        let tmp = HomeTemp::new("rust_detect");
+        let proj = tmp.path().join("my_crate");
+        fs::create_dir_all(&proj).unwrap();
+        write_file(&proj.join("Cargo.toml"), "[package]\nname = \"x\"");
+        create_dir_with_files(&proj.join("target"), 3, 10);
+
+        let scanner = Scanner::new(make_config(tmp.path().to_path_buf()));
+        let projects = scanner.scan().unwrap();
+
+        assert_eq!(projects.len(), 1);
+        assert_eq!(projects[0].project_type, ProjectType::Rust);
+        assert_eq!(projects[0].name, "my_crate");
+        assert!(!projects[0].artifacts.is_empty());
+    }
+
+    #[test]
+    fn test_detects_node_project_with_node_modules() {
+        let tmp = HomeTemp::new("node_detect");
+        let proj = tmp.path().join("my_app");
+        fs::create_dir_all(&proj).unwrap();
+        write_file(&proj.join("package.json"), "{}");
+        create_dir_with_files(&proj.join("node_modules"), 2, 20);
+
+        let scanner = Scanner::new(make_config(tmp.path().to_path_buf()));
+        let projects = scanner.scan().unwrap();
+
+        assert_eq!(projects.len(), 1);
+        assert_eq!(projects[0].project_type, ProjectType::Node);
+    }
+
+    #[test]
+    fn test_detects_python_project_with_venv() {
+        let tmp = HomeTemp::new("python_detect");
+        let proj = tmp.path().join("my_script");
+        fs::create_dir_all(&proj).unwrap();
+        write_file(&proj.join("requirements.txt"), "requests\n");
+        create_dir_with_files(&proj.join("venv"), 2, 10);
+
+        let scanner = Scanner::new(make_config(tmp.path().to_path_buf()));
+        let projects = scanner.scan().unwrap();
+
+        assert_eq!(projects.len(), 1);
+        assert_eq!(projects[0].project_type, ProjectType::Python);
+    }
+
+    #[test]
+    fn test_no_projects_when_directory_empty() {
+        let tmp = HomeTemp::new("empty_dir");
+        let scanner = Scanner::new(make_config(tmp.path().to_path_buf()));
+        let projects = scanner.scan().unwrap();
+        assert!(projects.is_empty());
+    }
+
+    #[test]
+    fn test_no_project_without_artifacts() {
+        // Has config file but no artifact directories → should not appear
+        let tmp = HomeTemp::new("no_artifacts");
+        let proj = tmp.path().join("clean_project");
+        fs::create_dir_all(&proj).unwrap();
+        write_file(&proj.join("Cargo.toml"), "[package]");
+        // No target/ directory
+
+        let scanner = Scanner::new(make_config(tmp.path().to_path_buf()));
+        let projects = scanner.scan().unwrap();
+        assert!(projects.is_empty());
+    }
+
+    #[test]
+    fn test_multiple_projects_detected() {
+        let tmp = HomeTemp::new("multi_detect");
+
+        let rust_proj = tmp.path().join("rust_proj");
+        fs::create_dir_all(&rust_proj).unwrap();
+        write_file(&rust_proj.join("Cargo.toml"), "[package]");
+        create_dir_with_files(&rust_proj.join("target"), 2, 10);
+
+        let node_proj = tmp.path().join("node_proj");
+        fs::create_dir_all(&node_proj).unwrap();
+        write_file(&node_proj.join("package.json"), "{}");
+        create_dir_with_files(&node_proj.join("node_modules"), 2, 10);
+
+        let scanner = Scanner::new(make_config(tmp.path().to_path_buf()));
+        let projects = scanner.scan().unwrap();
+        assert_eq!(projects.len(), 2);
+    }
+
+    // --- should_enter / directory filtering tests ---
+
+    #[test]
+    fn test_skips_git_directory() {
+        let tmp = HomeTemp::new("git_skip");
+        // .git should be skipped so nothing inside gets scanned as a project
+        let git_dir = tmp.path().join(".git");
+        fs::create_dir_all(&git_dir).unwrap();
+        write_file(&git_dir.join("Cargo.toml"), "[package]");
+        create_dir_with_files(&git_dir.join("target"), 1, 5);
+
+        let scanner = Scanner::new(make_config(tmp.path().to_path_buf()));
+        let projects = scanner.scan().unwrap();
+        assert!(projects.is_empty(), "should not scan inside .git");
+    }
+
+    #[test]
+    fn test_exclude_pattern_filters_directory() {
+        let tmp = HomeTemp::new("exclude_pattern");
+        let proj = tmp.path().join("archived_thing");
+        fs::create_dir_all(&proj).unwrap();
+        write_file(&proj.join("Cargo.toml"), "[package]");
+        create_dir_with_files(&proj.join("target"), 2, 10);
+
+        let mut config = make_config(tmp.path().to_path_buf());
+        config.exclude_patterns = vec!["archived".to_string()];
+
+        let scanner = Scanner::new(config);
+        let projects = scanner.scan().unwrap();
+        assert!(projects.is_empty(), "excluded pattern should filter directory");
+    }
+
+    // --- Filter tests ---
+
+    #[test]
+    fn test_project_type_filter() {
+        let tmp = HomeTemp::new("type_filter");
+
+        let rust_proj = tmp.path().join("rust_proj");
+        fs::create_dir_all(&rust_proj).unwrap();
+        write_file(&rust_proj.join("Cargo.toml"), "[package]");
+        create_dir_with_files(&rust_proj.join("target"), 2, 10);
+
+        let node_proj = tmp.path().join("node_proj");
+        fs::create_dir_all(&node_proj).unwrap();
+        write_file(&node_proj.join("package.json"), "{}");
+        create_dir_with_files(&node_proj.join("node_modules"), 2, 10);
+
+        let mut config = make_config(tmp.path().to_path_buf());
+        config.project_filters = vec![ProjectType::Rust];
+
+        let scanner = Scanner::new(config);
+        let projects = scanner.scan().unwrap();
+        assert_eq!(projects.len(), 1);
+        assert_eq!(projects[0].project_type, ProjectType::Rust);
+    }
+
+    #[test]
+    fn test_min_size_filter_excludes_small_projects() {
+        let tmp = HomeTemp::new("min_size");
+        let proj = tmp.path().join("tiny_proj");
+        fs::create_dir_all(&proj).unwrap();
+        write_file(&proj.join("Cargo.toml"), "[package]");
+        // Create target with a very small file (< 1 MB)
+        create_dir_with_files(&proj.join("target"), 1, 5);
+
+        let mut config = make_config(tmp.path().to_path_buf());
+        config.min_size_bytes = Some(1_000_000); // 1 MB minimum
+
+        let scanner = Scanner::new(config);
+        let projects = scanner.scan().unwrap();
+        assert!(projects.is_empty(), "small project should be filtered out");
+    }
+
+    // --- Size calculation test ---
+
+    #[test]
+    fn test_size_calculation_reflects_artifact_contents() {
+        let tmp = HomeTemp::new("size_calc");
+        let proj = tmp.path().join("sized_proj");
+        fs::create_dir_all(&proj).unwrap();
+        write_file(&proj.join("Cargo.toml"), "[package]");
+
+        // Create target with known-size files: 3 files × 100 bytes each = 300 bytes
+        let target = proj.join("target");
+        create_dir_with_files(&target, 3, 100);
+
+        let scanner = Scanner::new(make_config(tmp.path().to_path_buf()));
+        let projects = scanner.scan().unwrap();
+
+        assert_eq!(projects.len(), 1);
+        assert!(
+            projects[0].total_size >= 300,
+            "total_size should reflect artifact file contents"
+        );
+    }
+
+    // --- Results ordering test ---
+
+    #[test]
+    fn test_results_sorted_largest_first() {
+        let tmp = HomeTemp::new("sort_order");
+
+        let small = tmp.path().join("small_proj");
+        fs::create_dir_all(&small).unwrap();
+        write_file(&small.join("Cargo.toml"), "[package]");
+        create_dir_with_files(&small.join("target"), 1, 10);
+
+        let large = tmp.path().join("large_proj");
+        fs::create_dir_all(&large).unwrap();
+        write_file(&large.join("package.json"), "{}");
+        create_dir_with_files(&large.join("node_modules"), 10, 1000);
+
+        let scanner = Scanner::new(make_config(tmp.path().to_path_buf()));
+        let projects = scanner.scan().unwrap();
+
+        assert_eq!(projects.len(), 2);
+        assert!(
+            projects[0].total_size >= projects[1].total_size,
+            "results should be sorted largest first"
+        );
+    }
+}

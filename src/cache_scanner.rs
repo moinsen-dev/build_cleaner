@@ -111,6 +111,7 @@ fn calculate_dir_size(path: &PathBuf) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cache::CacheType;
 
     #[test]
     fn test_cache_scanner_creation() {
@@ -119,12 +120,132 @@ mod tests {
     }
 
     #[test]
-    fn test_category_filter() {
+    fn test_category_filter_ai_ml() {
         let scanner = CacheScanner::new()
             .unwrap()
             .with_categories(vec![CacheCategory::AiMl]);
+        // Just verify it doesn't panic and returns a vec
+        let result = scanner.scan();
+        assert!(result.iter().all(|c| c.cache_type.category() == CacheCategory::AiMl));
+    }
 
-        // Just verify it doesn't panic
-        let _ = scanner.scan();
+    #[test]
+    fn test_category_filter_package_manager() {
+        let scanner = CacheScanner::new()
+            .unwrap()
+            .with_categories(vec![CacheCategory::PackageManager]);
+        let result = scanner.scan();
+        assert!(result.iter().all(|c| c.cache_type.category() == CacheCategory::PackageManager));
+    }
+
+    #[test]
+    fn test_empty_categories_returns_all() {
+        // with_categories on an empty vec leaves categories as None → scan all
+        let scanner_all = CacheScanner::new().unwrap();
+        let scanner_empty = CacheScanner::new()
+            .unwrap()
+            .with_categories(vec![]);
+        // Both should produce the same result since empty list means no filter
+        let all = scanner_all.scan();
+        let empty_filtered = scanner_empty.scan();
+        assert_eq!(all.len(), empty_filtered.len());
+    }
+
+    #[test]
+    fn test_min_size_filter_excludes_small_caches() {
+        // With an absurdly large minimum, nothing should pass
+        let scanner = CacheScanner::new()
+            .unwrap()
+            .with_min_size(Some(u64::MAX));
+        let result = scanner.scan();
+        assert!(result.is_empty(), "no cache should exceed u64::MAX bytes");
+    }
+
+    #[test]
+    fn test_min_size_none_includes_all_existing() {
+        let scanner_no_filter = CacheScanner::new().unwrap().with_min_size(None);
+        let scanner_zero = CacheScanner::new().unwrap().with_min_size(Some(0));
+        // Both should return the same caches (0-byte minimum = same as no filter)
+        let no_filter = scanner_no_filter.scan();
+        let zero_min = scanner_zero.scan();
+        assert_eq!(no_filter.len(), zero_min.len());
+    }
+
+    #[test]
+    fn test_results_sorted_largest_first() {
+        let scanner = CacheScanner::new().unwrap();
+        let result = scanner.scan();
+        for window in result.windows(2) {
+            assert!(
+                window[0].size >= window[1].size,
+                "results should be sorted largest first: {} >= {}",
+                window[0].size,
+                window[1].size
+            );
+        }
+    }
+
+    #[test]
+    fn test_calculate_dir_size_empty_dir() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let size = calculate_dir_size(&tmp.path().to_path_buf());
+        assert_eq!(size, 0);
+    }
+
+    #[test]
+    fn test_calculate_dir_size_with_files() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        // Write two files of known size
+        std::fs::write(tmp.path().join("a.txt"), b"hello").unwrap(); // 5 bytes
+        std::fs::write(tmp.path().join("b.txt"), b"world!").unwrap(); // 6 bytes
+        let size = calculate_dir_size(&tmp.path().to_path_buf());
+        assert_eq!(size, 11);
+    }
+
+    #[test]
+    fn test_calculate_dir_size_nested() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let sub = tmp.path().join("sub");
+        std::fs::create_dir_all(&sub).unwrap();
+        std::fs::write(sub.join("file.bin"), vec![0u8; 100]).unwrap();
+        let size = calculate_dir_size(&tmp.path().to_path_buf());
+        assert_eq!(size, 100);
+    }
+
+    #[test]
+    fn test_cache_type_paths_are_relative() {
+        // All non-macOS paths should not start with '/'
+        for ct in CacheType::all() {
+            for (path, _macos_only) in ct.paths() {
+                assert!(
+                    !path.starts_with('/'),
+                    "cache path should be relative to home: {} for {:?}",
+                    path,
+                    ct
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_all_cache_types_have_at_least_one_path() {
+        for ct in CacheType::all() {
+            assert!(
+                !ct.paths().is_empty(),
+                "cache type {:?} has no paths",
+                ct
+            );
+        }
+    }
+
+    #[test]
+    fn test_cache_type_category_is_consistent() {
+        use crate::cache::CacheCategory;
+        // Spot-check a few well-known mappings
+        assert_eq!(CacheType::HuggingFace.category(), CacheCategory::AiMl);
+        assert_eq!(CacheType::Npm.category(), CacheCategory::PackageManager);
+        assert_eq!(CacheType::XcodeDerivedData.category(), CacheCategory::Development);
+        assert_eq!(CacheType::JetBrainsCache.category(), CacheCategory::Ide);
+        assert_eq!(CacheType::Docker.category(), CacheCategory::Container);
     }
 }

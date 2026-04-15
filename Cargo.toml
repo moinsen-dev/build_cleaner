@@ -1,10 +1,10 @@
 [package]
 name = "build-cleaner"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "Multi-language build directory cleaner - reclaim disk space by removing build artifacts"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/moinsen/build_cleaner"
+repository = "https://github.com/moinsen-dev/build_cleaner"
 keywords = ["cli", "cleaner", "build", "disk-space", "developer-tools"]
 categories = ["command-line-utilities", "development-tools"]
 

@@ -421,3 +421,161 @@ fn delete_artifact(path: &std::path::Path) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::project::{Artifact, ProjectType};
+    use std::fs::{self, File};
+    use std::io::Write;
+    use tempfile::TempDir;
+
+    fn write_file(path: &std::path::Path, content: &str) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        let mut f = File::create(path).unwrap();
+        f.write_all(content.as_bytes()).unwrap();
+    }
+
+    fn create_project_with_artifact(tmp: &TempDir, artifact_name: &str) -> Project {
+        let proj_path = tmp.path().join("test_project");
+        fs::create_dir_all(&proj_path).unwrap();
+        write_file(&proj_path.join("Cargo.toml"), "[package]");
+
+        let artifact_path = proj_path.join(artifact_name);
+        fs::create_dir_all(&artifact_path).unwrap();
+        write_file(&artifact_path.join("file.txt"), "build output");
+
+        let size = 12u64; // "build output" is 12 bytes
+        let mut project = Project::new(
+            "test_project".to_string(),
+            ProjectType::Rust,
+            proj_path,
+        );
+        project.add_artifact(Artifact::new(artifact_path, size));
+        project
+    }
+
+    // --- delete_artifact tests ---
+
+    #[test]
+    fn test_delete_artifact_removes_directory() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("to_delete");
+        fs::create_dir_all(&dir).unwrap();
+        write_file(&dir.join("file.txt"), "content");
+
+        assert!(dir.exists());
+        delete_artifact(&dir).unwrap();
+        assert!(!dir.exists());
+    }
+
+    #[test]
+    fn test_delete_artifact_removes_file() {
+        let tmp = TempDir::new().unwrap();
+        let file_path = tmp.path().join("artifact.bin");
+        write_file(&file_path, "data");
+
+        assert!(file_path.exists());
+        delete_artifact(&file_path).unwrap();
+        assert!(!file_path.exists());
+    }
+
+    #[test]
+    fn test_delete_artifact_nonexistent_path_is_ok() {
+        let tmp = TempDir::new().unwrap();
+        let missing = tmp.path().join("does_not_exist");
+        // Should succeed silently — nothing to delete
+        delete_artifact(&missing).unwrap();
+    }
+
+    #[test]
+    fn test_delete_artifact_removes_nested_contents() {
+        let tmp = TempDir::new().unwrap();
+        let dir = tmp.path().join("nested");
+        let sub = dir.join("a").join("b").join("c");
+        fs::create_dir_all(&sub).unwrap();
+        write_file(&sub.join("deep.txt"), "deep content");
+
+        delete_artifact(&dir).unwrap();
+        assert!(!dir.exists());
+    }
+
+    // --- delete_project_artifacts tests ---
+
+    #[test]
+    fn test_delete_project_artifacts_frees_space() {
+        let tmp = TempDir::new().unwrap();
+        let project = create_project_with_artifact(&tmp, "target");
+
+        let artifact_path = project.artifacts[0].path.clone();
+        assert!(artifact_path.exists());
+
+        let (freed, failed) = delete_project_artifacts(&project).unwrap();
+        assert_eq!(failed, 0);
+        assert!(freed > 0);
+        assert!(!artifact_path.exists());
+    }
+
+    #[test]
+    fn test_delete_project_artifacts_multiple_artifacts() {
+        let tmp = TempDir::new().unwrap();
+        let proj_path = tmp.path().join("multi_proj");
+        fs::create_dir_all(&proj_path).unwrap();
+
+        let mut project = Project::new(
+            "multi_proj".to_string(),
+            ProjectType::Node,
+            proj_path.clone(),
+        );
+
+        for name in &["node_modules", "dist", ".next"] {
+            let art_path = proj_path.join(name);
+            fs::create_dir_all(&art_path).unwrap();
+            write_file(&art_path.join("file.js"), "code");
+            project.add_artifact(Artifact::new(art_path, 4));
+        }
+
+        let (freed, failed) = delete_project_artifacts(&project).unwrap();
+        assert_eq!(failed, 0);
+        assert_eq!(freed, 12); // 3 artifacts × 4 bytes each
+    }
+
+    #[test]
+    fn test_delete_project_artifacts_empty_project_returns_zero() {
+        let tmp = TempDir::new().unwrap();
+        let proj_path = tmp.path().join("empty_proj");
+        fs::create_dir_all(&proj_path).unwrap();
+
+        let project = Project::new(
+            "empty_proj".to_string(),
+            ProjectType::Rust,
+            proj_path,
+        );
+
+        let (freed, failed) = delete_project_artifacts(&project).unwrap();
+        assert_eq!(freed, 0);
+        assert_eq!(failed, 0);
+    }
+
+    // --- delete_cache tests ---
+
+    #[test]
+    fn test_delete_cache_removes_directory_and_returns_size() {
+        use crate::cache::{Cache, CacheType};
+
+        let tmp = TempDir::new().unwrap();
+        let cache_dir = tmp.path().join("npm_cache");
+        fs::create_dir_all(&cache_dir).unwrap();
+        write_file(&cache_dir.join("pack.tgz"), "data");
+
+        let reported_size = 42u64;
+        let cache = Cache::new(CacheType::Npm, cache_dir.clone(), reported_size);
+
+        assert!(cache_dir.exists());
+        let freed = delete_cache(&cache).unwrap();
+        assert_eq!(freed, reported_size);
+        assert!(!cache_dir.exists());
+    }
+}

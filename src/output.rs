@@ -271,6 +271,12 @@ pub fn print_confirm_prompt(count: usize, total_size: u64) {
 /// Print abort message
 pub fn print_aborted() {
     println!("\n{} Operation cancelled. No files were deleted.", "\u{1F6AB}".red());
+    println!(
+        "\n{} You can also run with {} to preview, or {} to generate a removal script.",
+        "💡".yellow(),
+        "--dry-run".cyan(),
+        "--script cleanup.sh".cyan()
+    );
 }
 
 // === Cache Display Functions ===
