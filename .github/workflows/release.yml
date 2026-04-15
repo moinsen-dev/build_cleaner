@@ -18,10 +18,10 @@ jobs:
       matrix:
         include:
           - target: x86_64-apple-darwin
-            os: macos-13
+            os: macos-latest
             artifact_name: build-cleaner-x86_64-apple-darwin
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-latest
             artifact_name: build-cleaner-aarch64-apple-darwin
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
