@@ -505,7 +505,11 @@ function renderProjectsList() {
         return;
     }
 
-    scanResults.projects.forEach(p => {
+    // Rank by cleanup priority: projects that are both large and long
+    // untouched are listed first, so the biggest wins are easy to spot.
+    const rankedProjects = sortByCleanupPriority(scanResults.projects);
+
+    rankedProjects.forEach(p => {
         const row = document.createElement('div');
         row.className = 'item-row clickable';
         row.dataset.projectId = p.id;
@@ -539,11 +543,11 @@ function renderProjectsList() {
         pathDiv.className = 'path';
         pathDiv.textContent = p.path;
 
-        // Show artifact count hint
+        // Show artifact count + last-touched hint
         const artifactHint = document.createElement('div');
         artifactHint.className = 'path';
         artifactHint.style.color = 'var(--accent-primary)';
-        artifactHint.textContent = `${p.artifacts.length} artifact${p.artifacts.length !== 1 ? 's' : ''} - click for details`;
+        artifactHint.textContent = `${p.artifacts.length} artifact${p.artifacts.length !== 1 ? 's' : ''} \u{2022} last touched ${formatAge(p.last_modified)} - click for details`;
 
         info.appendChild(nameDiv);
         info.appendChild(pathDiv);
@@ -892,6 +896,40 @@ function formatBytes(bytes) {
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Human-readable "time since last touched" string, e.g. "214 days ago"
+function formatAge(lastModified) {
+    if (lastModified === null || lastModified === undefined) return 'unknown';
+    const days = Math.max(0, Math.floor((Date.now() / 1000 - lastModified) / 86400));
+    if (days === 0) return 'today';
+    if (days === 1) return '1 day ago';
+    return `${days} days ago`;
+}
+
+// Rank projects by cleanup priority: combines a size rank and an age rank,
+// each normalized to 0..1 relative to the given list, so projects that are
+// both large and long untouched bubble to the top regardless of absolute
+// scale. Returns a new array; does not mutate the input.
+function sortByCleanupPriority(projects) {
+    if (projects.length < 2) return projects.slice();
+
+    const nowSec = Date.now() / 1000;
+    const ages = projects.map(p =>
+        (p.last_modified === null || p.last_modified === undefined)
+            ? 0
+            : Math.max(0, (nowSec - p.last_modified) / 86400)
+    );
+    const maxSize = Math.max(0, ...projects.map(p => p.total_size));
+    const maxAge = Math.max(0, ...ages);
+
+    return projects
+        .map((p, i) => ({
+            project: p,
+            score: (maxSize > 0 ? p.total_size / maxSize : 0) + (maxAge > 0 ? ages[i] / maxAge : 0)
+        }))
+        .sort((a, b) => b.score - a.score)
+        .map(entry => entry.project);
 }
 
 // Project Detail Modal Functions

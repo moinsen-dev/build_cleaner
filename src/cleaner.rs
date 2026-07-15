@@ -2,7 +2,7 @@ use crate::cache::{Cache, CacheCategory};
 use crate::cache_scanner::CacheScanner;
 use crate::cli::{Args, CacheFilter, ProjectFilter};
 use crate::output;
-use crate::project::{Config, Project, ProjectType};
+use crate::project::{sort_by_cleanup_priority, Config, Project, ProjectType};
 use crate::scanner::Scanner;
 use crate::script::ScriptGenerator;
 use anyhow::Result;
@@ -258,15 +258,21 @@ fn select_projects_interactive(projects: &[Project]) -> Result<Vec<Project>> {
         return Ok(Vec::new());
     }
 
-    let items: Vec<String> = projects
+    // Rank by cleanup priority: projects that are both large and long
+    // untouched come first, so the biggest wins are easy to spot and select.
+    let mut ranked: Vec<Project> = projects.to_vec();
+    sort_by_cleanup_priority(&mut ranked);
+
+    let items: Vec<String> = ranked
         .iter()
         .map(|p| {
             format!(
-                "{} {} ({}) - {}",
+                "{} {} ({}) - {} \u{2022} last touched {}",
                 p.project_type.icon(),
                 p.name,
                 p.project_type.label(),
-                p.size_display()
+                p.size_display(),
+                p.age_display()
             )
         })
         .collect();
@@ -274,15 +280,14 @@ fn select_projects_interactive(projects: &[Project]) -> Result<Vec<Project>> {
     let defaults: Vec<bool> = vec![true; items.len()];
 
     let selections = MultiSelect::with_theme(&ColorfulTheme::default())
-        .with_prompt("Select projects to clean (Space to toggle, Enter to confirm)")
+        .with_prompt(
+            "Select projects to clean (Space to toggle, Enter to confirm) \u{2014} oldest & largest first",
+        )
         .items(&items)
         .defaults(&defaults)
         .interact()?;
 
-    Ok(selections
-        .into_iter()
-        .map(|i| projects[i].clone())
-        .collect())
+    Ok(selections.into_iter().map(|i| ranked[i].clone()).collect())
 }
 
 /// Interactive cache selection

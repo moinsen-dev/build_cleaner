@@ -1,5 +1,6 @@
 use std::fmt;
 use std::path::PathBuf;
+use std::time::SystemTime;
 
 /// Supported project types/ecosystems
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -157,6 +158,68 @@ impl Project {
     pub fn size_display(&self) -> String {
         bytesize::ByteSize(self.total_size).to_string()
     }
+
+    /// Age in whole days since last modification, relative to `now` (unix seconds).
+    pub fn age_days(&self, now: i64) -> Option<i64> {
+        self.last_modified.map(|lm| (now - lm).max(0) / 86_400)
+    }
+
+    /// Human-readable "time since last touched" string, e.g. "214 days ago".
+    pub fn age_display(&self) -> String {
+        let now = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        match self.age_days(now) {
+            Some(0) => "today".to_string(),
+            Some(1) => "1 day ago".to_string(),
+            Some(days) => format!("{} days ago", days),
+            None => "unknown".to_string(),
+        }
+    }
+}
+
+/// Sort projects by cleanup priority: projects that are both large and long
+/// untouched are ranked first. Combines a size rank and an age rank, each
+/// normalized to 0..=1 relative to the given list, so both dimensions matter
+/// regardless of their absolute scale (e.g. a huge fresh build next to a
+/// tiny ancient one).
+pub fn sort_by_cleanup_priority(projects: &mut [Project]) {
+    if projects.len() < 2 {
+        return;
+    }
+
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+
+    let max_size = projects.iter().map(|p| p.total_size).max().unwrap_or(0);
+    let max_age = projects
+        .iter()
+        .filter_map(|p| p.age_days(now))
+        .max()
+        .unwrap_or(0);
+
+    let score = |p: &Project| -> f64 {
+        let size_score = if max_size > 0 {
+            p.total_size as f64 / max_size as f64
+        } else {
+            0.0
+        };
+        let age_score = if max_age > 0 {
+            p.age_days(now).unwrap_or(0) as f64 / max_age as f64
+        } else {
+            0.0
+        };
+        size_score + age_score
+    };
+
+    projects.sort_by(|a, b| {
+        score(b)
+            .partial_cmp(&score(a))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 }
 
 /// Represents a single artifact (directory or file) to be cleaned
@@ -226,5 +289,74 @@ impl Default for Config {
             min_size_bytes: None,
             verbose: false,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn now_secs() -> i64 {
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64
+    }
+
+    fn make_project(name: &str, size: u64, age_days: i64) -> Project {
+        let mut p = Project::new(name.to_string(), ProjectType::Rust, PathBuf::from(name));
+        p.total_size = size;
+        p.last_modified = Some(now_secs() - age_days * 86_400);
+        p
+    }
+
+    #[test]
+    fn test_sort_by_cleanup_priority_ranks_large_and_old_first() {
+        let mut projects = vec![
+            make_project("small_new", 10, 1),
+            make_project("large_old", 1_000_000, 400),
+            make_project("large_new", 1_000_000, 1),
+            make_project("small_old", 10, 400),
+        ];
+
+        sort_by_cleanup_priority(&mut projects);
+
+        assert_eq!(projects[0].name, "large_old");
+        assert_eq!(projects.last().unwrap().name, "small_new");
+    }
+
+    #[test]
+    fn test_sort_by_cleanup_priority_handles_missing_last_modified() {
+        let mut projects = vec![
+            make_project("known", 100, 30),
+            Project::new("unknown".to_string(), ProjectType::Node, PathBuf::from("unknown")),
+        ];
+
+        // Should not panic even though one project has no last_modified.
+        sort_by_cleanup_priority(&mut projects);
+        assert_eq!(projects.len(), 2);
+    }
+
+    #[test]
+    fn test_sort_by_cleanup_priority_noop_on_short_lists() {
+        let mut single = vec![make_project("only", 5, 5)];
+        sort_by_cleanup_priority(&mut single);
+        assert_eq!(single.len(), 1);
+
+        let mut empty: Vec<Project> = Vec::new();
+        sort_by_cleanup_priority(&mut empty);
+        assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn test_age_display_variants() {
+        let mut p = Project::new("p".to_string(), ProjectType::Go, PathBuf::from("p"));
+        assert_eq!(p.age_display(), "unknown");
+
+        p.last_modified = Some(now_secs());
+        assert_eq!(p.age_display(), "today");
+
+        p.last_modified = Some(now_secs() - 86_400 * 5);
+        assert_eq!(p.age_display(), "5 days ago");
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "build-cleaner"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Multi-language build directory cleaner - reclaim disk space by removing build artifacts"
 license = "MIT OR Apache-2.0"
